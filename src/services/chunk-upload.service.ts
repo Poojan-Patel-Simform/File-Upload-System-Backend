@@ -25,6 +25,7 @@ export const chunkUploadService = async (req: Request, res: Response) => {
       });
     }
 
+    // Check if the upload exists
     const upload = await prisma.upload.findUnique({ where: { id: uploadId } });
 
     if (!upload) {
@@ -71,18 +72,22 @@ export const chunkUploadService = async (req: Request, res: Response) => {
       });
     }
 
+    // Save the chunk to the filesystem
     const uploadDir = path.join(CHUNK_DIR, uploadId);
     const chunkPath = path.join(uploadDir, String(parsedChunkIndex));
 
     await fs.mkdir(uploadDir, { recursive: true });
     await fs.writeFile(chunkPath, file.buffer);
 
+    // Check if the chunk already exists in the redis store to avoid double counting
     const existingChunk = await chunkStore.getChunk(uploadId, parsedChunkIndex);
 
     const checksumValue: string | null = checksum || null;
 
+    // Store the chunk index in the redis store
     await chunkStore.addChunk(uploadId, parsedChunkIndex, checksumValue);
 
+    // Update the upload record in the database
     let updatedUpload = await prisma.upload.update({
       where: { id: uploadId },
       data: {
@@ -91,9 +96,11 @@ export const chunkUploadService = async (req: Request, res: Response) => {
       },
     });
 
+    // Check if all chunks have been uploaded
     const isLastChunk =
       updatedUpload.uploadedChunks === updatedUpload.totalChunks;
 
+    // If not all chunks are uploaded, return the current status
     if (!isLastChunk) {
       return res.status(200).json({
         success: true,
@@ -108,6 +115,7 @@ export const chunkUploadService = async (req: Request, res: Response) => {
       });
     }
 
+    // If all chunks are uploaded, check for any missing indices
     const allChunkIndices = await chunkStore.getAllChunkIndices(uploadId);
 
     const uploadedIndices = new Set(allChunkIndices);
@@ -131,11 +139,13 @@ export const chunkUploadService = async (req: Request, res: Response) => {
       });
     }
 
+    // All chunks are uploaded, proceed to merge them
     const { count: claimedMerge } = await prisma.upload.updateMany({
       where: { id: uploadId, status: "UPLOADING" },
       data: { status: "MERGING" },
     });
 
+    // If no rows were updated, it means another process has already claimed the merge
     if (claimedMerge === 0) {
       return res.status(200).json({
         success: true,
@@ -151,12 +161,14 @@ export const chunkUploadService = async (req: Request, res: Response) => {
       });
     }
 
+    // Proceed to merge the chunks into a single file
     const mergedFileDir = path.join(MERGED_DIR, uploadId);
     const mergedPath = path.join(mergedFileDir, upload.fileName);
 
     try {
       await fs.mkdir(mergedFileDir, { recursive: true });
 
+      // Create a write stream for the merged file and a hash instance to compute the SHA-256 hash
       const hash = createHash("sha256");
       const writeStream = createWriteStream(mergedPath);
 

@@ -12,6 +12,7 @@ app.use(helmet());
 
 app.use(cors());
 
+// global rate limiter
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 1000,
@@ -25,6 +26,7 @@ app.use(express.json());
 app.use("/api/uploads/", uploadRouter);
 app.use("/api/cloudinary/", cloudinaryRouter);
 
+// global error handler
 app.use(
   (
     err: unknown,

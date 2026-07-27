@@ -1,6 +1,7 @@
 import { type Request, type Response } from "express";
 import { createHash } from "node:crypto";
 import { type SignCloudinaryUploadBody } from "../schemas/cloudinary.schema.js";
+import { prisma } from "../db/prisma.js";
 import "dotenv/config";
 
 export const signCloudinaryUploadService = async (
@@ -8,7 +9,22 @@ export const signCloudinaryUploadService = async (
   res: Response,
 ) => {
   try {
-    const { publicId } = req.body as SignCloudinaryUploadBody;
+    const { publicId, fileHash } = req.body as SignCloudinaryUploadBody;
+
+    const existing = await prisma.cloudinaryAsset.findUnique({
+      where: { fileHash },
+    });
+
+    if (existing) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          duplicate: true,
+          publicId: existing.publicId,
+          url: existing.url,
+        },
+      });
+    }
 
     const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
     const apiKey = process.env.CLOUDINARY_API_KEY;
@@ -30,6 +46,7 @@ export const signCloudinaryUploadService = async (
     return res.status(200).json({
       success: true,
       data: {
+        duplicate: false,
         cloudName,
         apiKey,
         timestamp,

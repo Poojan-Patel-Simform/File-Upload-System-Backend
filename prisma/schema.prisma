@@ -30,3 +30,15 @@ model Upload {
 
   @@map("uploads")
 }
+
+model CloudinaryAsset {
+  id       String @id @default(uuid())
+  publicId String @unique
+  fileHash String @unique
+  url      String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("cloudinary_assets")
+}

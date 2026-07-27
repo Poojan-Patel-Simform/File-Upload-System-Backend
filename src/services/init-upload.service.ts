@@ -9,13 +9,19 @@ import * as chunkStore from "./chunk-store.js";
 
 export const initUploadService = async (req: Request, res: Response) => {
   try {
-    const { fileHash, fileName, fileSize: parsedFileSize, totalChunks } =
-      req.body as InitUploadBody;
+    const {
+      fileHash,
+      fileName,
+      fileSize: parsedFileSize,
+      totalChunks,
+    } = req.body as InitUploadBody;
 
+    // Check if an upload with the same fileHash already exists
     const existingUpload = await prisma.upload.findFirst({
       where: { fileHash },
     });
 
+    // If no existing upload is found, create a new upload entry
     if (!existingUpload) {
       const upload = await prisma.upload.create({
         data: {
@@ -36,6 +42,7 @@ export const initUploadService = async (req: Request, res: Response) => {
       });
     }
 
+    // If an existing upload completed, return its status and indicate that it's deduplicated
     if (existingUpload.status === "COMPLETED") {
       return res.status(200).json({
         success: true,
@@ -47,7 +54,9 @@ export const initUploadService = async (req: Request, res: Response) => {
       });
     }
 
+    // If an existing upload is in progress, return its status and the indices of already uploaded chunks
     if (existingUpload.status === "UPLOADING") {
+      // Fetch the chunks from redis
       const uploadedIndices = await chunkStore.getAllChunkIndices(
         existingUpload.id,
       );
@@ -62,6 +71,7 @@ export const initUploadService = async (req: Request, res: Response) => {
       });
     }
 
+    // If an existing upload is being finalized, return a conflict response
     if (existingUpload.status === "MERGING") {
       return res.status(409).json({
         success: false,
@@ -70,9 +80,13 @@ export const initUploadService = async (req: Request, res: Response) => {
       });
     }
 
+    // If an existing upload failed, check for surviving chunks and return their indices
     if (existingUpload.status === "FAILED") {
       const uploadDir = path.join(CHUNK_DIR, existingUpload.id);
 
+      // If the client is retrying with a different chunk count/size, old chunk
+      // indices no longer line up with the new layout, so recovery is skipped
+      // and the upload is restarted from scratch below.
       const chunkingMatches = existingUpload.totalChunks === totalChunks;
 
       let survivingIndices: number[] | null = null;
@@ -80,8 +94,11 @@ export const initUploadService = async (req: Request, res: Response) => {
 
       if (chunkingMatches) {
         try {
+          // Throws if the chunk directory itself was removed (e.g. by a prior
+          // cleanup job), which is treated as "nothing survived, start over".
           await fs.access(uploadDir);
 
+          // Fetch all existing chunks from the redis store
           const existingChunks = await chunkStore.getAllChunks(
             existingUpload.id,
           );
@@ -89,16 +106,22 @@ export const initUploadService = async (req: Request, res: Response) => {
           const surviving: number[] = [];
           const stale: number[] = [];
 
+          // Redis metadata alone isn't trustworthy after a crash: the on-disk
+          // chunk write may have been interrupted, so each chunk is re-verified
+          // against the filesystem before it's allowed to count as "uploaded".
           for (const chunk of existingChunks) {
             const chunkPath = path.join(uploadDir, String(chunk.chunkIndex));
             try {
               const stat = await fs.stat(chunkPath);
               if (stat.size === 0) {
+                // A truncated/empty write (interrupted mid-flush) - discard.
                 stale.push(chunk.chunkIndex);
                 continue;
               }
 
               if (chunk.checksum) {
+                // Detect silent corruption: bytes on disk don't match what
+                // the client claimed to have sent for this chunk.
                 const buffer = await fs.readFile(chunkPath);
                 const actualChecksum = createHash("sha256")
                   .update(buffer)
@@ -111,6 +134,7 @@ export const initUploadService = async (req: Request, res: Response) => {
 
               surviving.push(chunk.chunkIndex);
             } catch {
+              // File missing/unreadable despite Redis metadata existing.
               stale.push(chunk.chunkIndex);
             }
           }
@@ -118,14 +142,20 @@ export const initUploadService = async (req: Request, res: Response) => {
           survivingIndices = surviving;
           staleIndices = stale;
         } catch {
+          // Chunk directory is gone or shapes didn't match - can't resume.
           survivingIndices = null;
         }
       }
 
+      // Purge Redis records for chunks that failed verification so a later
+      // resume attempt doesn't see them as "already uploaded" again.
       if (staleIndices.length > 0) {
         await chunkStore.deleteChunkFields(existingUpload.id, staleIndices);
       }
 
+      // survivingIndices !== null means recovery was attempted (even if the
+      // result is an empty array) - resume the same upload record rather than
+      // wiping it, so the client can continue with only the missing chunks.
       if (survivingIndices !== null) {
         const resumed = await prisma.upload.update({
           where: { id: existingUpload.id },
@@ -148,6 +178,8 @@ export const initUploadService = async (req: Request, res: Response) => {
         });
       }
 
+      // No recoverable state (dir missing or chunk shape changed) - wipe
+      // whatever remains and start this upload over from chunk 0.
       await fs.rm(uploadDir, { recursive: true, force: true });
 
       await chunkStore.deleteAllChunks(existingUpload.id);

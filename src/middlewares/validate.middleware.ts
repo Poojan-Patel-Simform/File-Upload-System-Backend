@@ -1,6 +1,7 @@
 import { type NextFunction, type Request, type Response } from "express";
 import { type ZodType } from "zod";
 
+// Middleware to validate request body against a Zod schema
 export const validateBody =
   (schema: ZodType) => (req: Request, res: Response, next: NextFunction) => {
     const result = schema.safeParse(req.body);
