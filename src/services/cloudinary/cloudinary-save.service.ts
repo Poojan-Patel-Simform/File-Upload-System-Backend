@@ -1,7 +1,7 @@
 import { type Request, type Response } from "express";
-import { prisma } from "../db/prisma.js";
-import { Prisma } from "../generated/prisma/client.js";
-import { type SaveCloudinaryAssetBody } from "../schemas/cloudinary.schema.js";
+import { prisma } from "../../db/prisma.js";
+import { Prisma } from "../../generated/prisma/client.js";
+import { type SaveCloudinaryAssetBody } from "../../schemas/cloudinary.schema.js";
 
 export const saveCloudinaryAssetService = async (
   req: Request,

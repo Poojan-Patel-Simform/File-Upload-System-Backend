@@ -1,7 +1,7 @@
 import { type Request, type Response } from "express";
-import { prisma } from "../db/prisma.js";
+import { prisma } from "../../db/prisma.js";
 
-export const uploadStatusService = async (req: Request, res: Response) => {
+export const uploadDetailService = async (req: Request, res: Response) => {
   try {
     const { uploadId } = req.params;
 
@@ -26,16 +26,12 @@ export const uploadStatusService = async (req: Request, res: Response) => {
     return res.status(200).json({
       success: true,
       data: {
-        uploadId: upload.id,
-        status: upload.status,
-        fileName: upload.fileName,
+        ...upload,
         fileSize: Number(upload.fileSize),
-        uploadedChunks: upload.uploadedChunks,
-        totalChunks: upload.totalChunks,
       },
     });
   } catch (error) {
-    console.error("uploadStatus error:", error);
+    console.error("uploadDetail error:", error);
     return res.status(500).json({
       success: false,
       message: "Internal server error",

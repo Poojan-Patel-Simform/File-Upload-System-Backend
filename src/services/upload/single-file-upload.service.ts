@@ -2,8 +2,8 @@ import { type Request, type Response } from "express";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import fs from "fs/promises";
-import { TRADITIONAL_UPLOAD_DIR } from "../constants.js";
-import { prisma } from "../db/prisma.js";
+import { TRADITIONAL_UPLOAD_DIR } from "../../constants.js";
+import { prisma } from "../../db/prisma.js";
 
 export const singleFileUploadService = async (req: Request, res: Response) => {
   try {

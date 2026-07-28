@@ -1,7 +1,7 @@
 import { type Request, type Response } from "express";
 import { createHash } from "node:crypto";
-import { type SignCloudinaryUploadBody } from "../schemas/cloudinary.schema.js";
-import { prisma } from "../db/prisma.js";
+import { type SignCloudinaryUploadBody } from "../../schemas/cloudinary.schema.js";
+import { prisma } from "../../db/prisma.js";
 import "dotenv/config";
 
 export const signCloudinaryUploadService = async (

@@ -28,3 +28,13 @@ export const chunkUploadBodySchema = z.object({
 });
 
 export type ChunkUploadBody = z.infer<typeof chunkUploadBodySchema>;
+
+export const listUploadsQuerySchema = z.object({
+  status: z
+    .enum(["NEW", "UPLOADING", "MERGING", "COMPLETED", "FAILED"])
+    .optional(),
+  take: z.coerce.number().int().positive().max(100).default(20),
+  skip: z.coerce.number().int().nonnegative().default(0),
+});
+
+export type ListUploadsQuery = z.infer<typeof listUploadsQuerySchema>;

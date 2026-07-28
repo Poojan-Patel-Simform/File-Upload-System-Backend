@@ -1,4 +1,4 @@
-import { redis } from "../db/redis.js";
+import { redis } from "../../db/redis.js";
 
 export const CHUNK_TTL_SECONDS = 24 * 60 * 60;
 

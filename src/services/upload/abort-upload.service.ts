@@ -1,9 +1,9 @@
 import { type Request, type Response } from "express";
 import path from "node:path";
 import fs from "fs/promises";
-import { prisma } from "../db/prisma.js";
-import { CHUNK_DIR } from "../constants.js";
-import * as chunkStore from "./chunk-store.js";
+import { prisma } from "../../db/prisma.js";
+import { CHUNK_DIR } from "../../constants.js";
+import * as chunkStore from "../chunk/chunk-store.js";
 
 export const abortUploadService = async (req: Request, res: Response) => {
   try {

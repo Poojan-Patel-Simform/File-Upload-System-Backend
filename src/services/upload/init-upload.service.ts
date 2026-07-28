@@ -1,11 +1,11 @@
 import { type Request, type Response } from "express";
-import { prisma } from "../db/prisma.js";
+import { prisma } from "../../db/prisma.js";
 import path from "node:path";
-import { CHUNK_DIR } from "../constants.js";
+import { CHUNK_DIR } from "../../constants.js";
 import { createHash } from "node:crypto";
 import fs from "fs/promises";
-import { type InitUploadBody } from "../schemas/upload.schema.js";
-import * as chunkStore from "./chunk-store.js";
+import { type InitUploadBody } from "../../schemas/upload.schema.js";
+import * as chunkStore from "../chunk/chunk-store.js";
 
 export const initUploadService = async (req: Request, res: Response) => {
   try {

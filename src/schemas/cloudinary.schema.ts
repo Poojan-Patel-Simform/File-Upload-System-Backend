@@ -18,3 +18,12 @@ export const saveCloudinaryAssetBodySchema = z.object({
 export type SaveCloudinaryAssetBody = z.infer<
   typeof saveCloudinaryAssetBodySchema
 >;
+
+export const listCloudinaryAssetsQuerySchema = z.object({
+  take: z.coerce.number().int().positive().max(100).default(20),
+  skip: z.coerce.number().int().nonnegative().default(0),
+});
+
+export type ListCloudinaryAssetsQuery = z.infer<
+  typeof listCloudinaryAssetsQuerySchema
+>;
