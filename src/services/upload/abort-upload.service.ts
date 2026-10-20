@@ -5,6 +5,7 @@ import { prisma } from "../../db/prisma.js";
 import { CHUNK_DIR } from "../../constants.js";
 import * as chunkStore from "../chunk/chunk-store.js";
 
+/** Aborts an unfinished upload: deletes its chunks (disk + Redis) and marks it FAILED. */
 export const abortUploadService = async (req: Request, res: Response) => {
   try {
     const { uploadId } = req.params;
@@ -27,6 +28,7 @@ export const abortUploadService = async (req: Request, res: Response) => {
       });
     }
 
+    // A finished upload can't be aborted (use the permanent delete endpoint)
     if (upload.status === "COMPLETED") {
       return res.status(409).json({
         success: false,
@@ -35,6 +37,7 @@ export const abortUploadService = async (req: Request, res: Response) => {
       });
     }
 
+    // Remove chunk files and Redis chunk records
     const uploadDir = path.join(CHUNK_DIR, upload.id);
     await fs.rm(uploadDir, { recursive: true, force: true });
     await chunkStore.deleteAllChunks(upload.id);

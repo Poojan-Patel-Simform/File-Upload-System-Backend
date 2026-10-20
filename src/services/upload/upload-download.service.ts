@@ -4,6 +4,7 @@ import fs from "fs/promises";
 import { prisma } from "../../db/prisma.js";
 import { MERGED_DIR, TRADITIONAL_UPLOAD_DIR } from "../../constants.js";
 
+/** Sends a completed upload's file to the client as a download. */
 export const uploadDownloadService = async (req: Request, res: Response) => {
   try {
     const { uploadId } = req.params;
@@ -34,11 +35,13 @@ export const uploadDownloadService = async (req: Request, res: Response) => {
       });
     }
 
+    // Single-file and merged uploads live in different folders
     const baseDir =
       upload.totalChunks === 1 ? TRADITIONAL_UPLOAD_DIR : MERGED_DIR;
     const filePath = path.join(baseDir, upload.id, upload.fileName);
 
     try {
+      // Guard against a COMPLETED row whose file is missing on disk
       await fs.access(filePath);
     } catch {
       console.error(

@@ -1,6 +1,7 @@
 import { type Request, type Response } from "express";
 import { prisma } from "../../db/prisma.js";
 
+/** Returns an upload's progress: status and uploaded/total chunk counts. */
 export const uploadStatusService = async (req: Request, res: Response) => {
   try {
     const { uploadId } = req.params;
@@ -29,6 +30,7 @@ export const uploadStatusService = async (req: Request, res: Response) => {
         uploadId: upload.id,
         status: upload.status,
         fileName: upload.fileName,
+        // BigInt can't be serialized to JSON
         fileSize: Number(upload.fileSize),
         uploadedChunks: upload.uploadedChunks,
         totalChunks: upload.totalChunks,

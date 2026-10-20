@@ -5,6 +5,7 @@ import fs from "fs/promises";
 import { TRADITIONAL_UPLOAD_DIR } from "../../constants.js";
 import { prisma } from "../../db/prisma.js";
 
+/** Uploads a whole file in one request; dedupes by SHA-256 hash and stores it on disk. */
 export const singleFileUploadService = async (req: Request, res: Response) => {
   try {
     const file = req.file as Express.Multer.File | undefined;

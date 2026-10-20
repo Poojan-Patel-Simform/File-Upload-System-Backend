@@ -6,6 +6,10 @@ import { Prisma } from "../../generated/prisma/client.js";
 import { CHUNK_DIR, MERGED_DIR, TRADITIONAL_UPLOAD_DIR } from "../../constants.js";
 import * as chunkStore from "../chunk/chunk-store.js";
 
+/**
+ * Permanently deletes an upload: chunk + final files, Redis records, then the DB row.
+ * The DB row is only removed after file cleanup succeeds.
+ */
 export const uploadPermanentDeleteService = async (
   req: Request,
   res: Response,
@@ -31,6 +35,7 @@ export const uploadPermanentDeleteService = async (
       });
     }
 
+    // Single-file and merged uploads live in different folders
     const completedDir =
       upload.totalChunks === 1 ? TRADITIONAL_UPLOAD_DIR : MERGED_DIR;
 
@@ -57,6 +62,7 @@ export const uploadPermanentDeleteService = async (
     }
 
     try {
+      // P2025 = row already gone (concurrent delete): ignore it, rethrow anything else
       await prisma.upload.delete({ where: { id: upload.id } });
     } catch (dbError) {
       if (

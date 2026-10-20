@@ -4,6 +4,10 @@ import { type SignCloudinaryUploadBody } from "../../schemas/cloudinary.schema.j
 import { prisma } from "../../db/prisma.js";
 import "dotenv/config";
 
+/**
+ * Prepares a signed Cloudinary upload for the client.
+ * If the same file (by hash) was already uploaded, returns the existing asset instead.
+ */
 export const signCloudinaryUploadService = async (
   req: Request,
   res: Response,
@@ -11,6 +15,7 @@ export const signCloudinaryUploadService = async (
   try {
     const { publicId, fileHash } = req.body as SignCloudinaryUploadBody;
 
+    // Dedupe: skip the upload if this file hash is already stored
     const existing = await prisma.cloudinaryAsset.findUnique({
       where: { fileHash },
     });
@@ -26,6 +31,7 @@ export const signCloudinaryUploadService = async (
       });
     }
 
+    // Cloudinary credentials from env; the API secret never leaves the server
     const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
     const apiKey = process.env.CLOUDINARY_API_KEY;
     const apiSecret = process.env.CLOUDINARY_API_SECRET;

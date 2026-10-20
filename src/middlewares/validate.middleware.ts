@@ -1,7 +1,7 @@
 import { type NextFunction, type Request, type Response } from "express";
 import { type ZodType } from "zod";
 
-// Middleware to validate request body against a Zod schema
+/** Validates req.body against a Zod schema (400 on failure) and replaces it with the parsed data. */
 export const validateBody =
   (schema: ZodType) => (req: Request, res: Response, next: NextFunction) => {
     const result = schema.safeParse(req.body);
@@ -14,11 +14,12 @@ export const validateBody =
       });
     }
 
+    // Use the parsed data (coerced types, defaults applied)
     req.body = result.data;
     next();
   };
 
-// Middleware to validate request query params against a Zod schema
+/** Validates req.query against a Zod schema (400 on failure) and replaces it with the parsed data. */
 export const validateQuery =
   (schema: ZodType) => (req: Request, res: Response, next: NextFunction) => {
     const result = schema.safeParse(req.query);

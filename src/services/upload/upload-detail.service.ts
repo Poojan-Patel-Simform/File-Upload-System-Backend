@@ -1,6 +1,7 @@
 import { type Request, type Response } from "express";
 import { prisma } from "../../db/prisma.js";
 
+/** Returns the full upload record. */
 export const uploadDetailService = async (req: Request, res: Response) => {
   try {
     const { uploadId } = req.params;
@@ -27,6 +28,7 @@ export const uploadDetailService = async (req: Request, res: Response) => {
       success: true,
       data: {
         ...upload,
+        // BigInt can't be serialized to JSON
         fileSize: Number(upload.fileSize),
       },
     });

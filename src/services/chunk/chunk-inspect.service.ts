@@ -2,6 +2,7 @@ import { type Request, type Response } from "express";
 import { prisma } from "../../db/prisma.js";
 import * as chunkStore from "./chunk-store.js";
 
+/** Parses a route param into a non-negative integer chunk index; null if invalid. */
 const parseChunkIndex = (raw: unknown): number | null => {
   if (typeof raw !== "string") return null;
   const value = Number(raw);
@@ -9,6 +10,7 @@ const parseChunkIndex = (raw: unknown): number | null => {
   return value;
 };
 
+/** Lists chunk indices recorded in Redis for an upload, plus the ones still missing. */
 export const listChunksService = async (req: Request, res: Response) => {
   try {
     const { uploadId } = req.params;
@@ -33,6 +35,7 @@ export const listChunksService = async (req: Request, res: Response) => {
 
     const receivedChunks = await chunkStore.getAllChunks(uploadId);
     const receivedIndices = new Set(receivedChunks.map((c) => c.chunkIndex));
+    // Every index in 0..totalChunks-1 that Redis hasn't recorded
     const missingChunks = Array.from(
       { length: upload.totalChunks },
       (_, i) => i,
@@ -57,6 +60,7 @@ export const listChunksService = async (req: Request, res: Response) => {
   }
 };
 
+/** Returns the stored checksum of one chunk (null if the client sent none). */
 export const getChunkService = async (req: Request, res: Response) => {
   try {
     const { uploadId } = req.params;
@@ -82,6 +86,7 @@ export const getChunkService = async (req: Request, res: Response) => {
 
     const checksum = await chunkStore.getChunk(uploadId, chunkIndex);
 
+    // null = no such chunk in Redis; "" = chunk exists without a checksum
     if (checksum === null) {
       return res.status(404).json({
         success: false,
@@ -108,6 +113,7 @@ export const getChunkService = async (req: Request, res: Response) => {
   }
 };
 
+/** Removes one chunk's record from Redis (the file on disk is untouched). */
 export const deleteChunkService = async (req: Request, res: Response) => {
   try {
     const { uploadId } = req.params;

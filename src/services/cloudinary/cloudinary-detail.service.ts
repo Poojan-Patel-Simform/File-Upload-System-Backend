@@ -1,6 +1,7 @@
 import { type Request, type Response } from "express";
 import { prisma } from "../../db/prisma.js";
 
+/** Returns one Cloudinary asset by id. */
 export const getCloudinaryAssetService = async (
   req: Request,
   res: Response,

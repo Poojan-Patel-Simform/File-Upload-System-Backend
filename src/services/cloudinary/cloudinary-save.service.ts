@@ -3,6 +3,10 @@ import { prisma } from "../../db/prisma.js";
 import { Prisma } from "../../generated/prisma/client.js";
 import { type SaveCloudinaryAssetBody } from "../../schemas/cloudinary.schema.js";
 
+/**
+ * Saves a Cloudinary asset's metadata after the client uploaded it.
+ * Idempotent: if the asset already exists, the existing record is returned.
+ */
 export const saveCloudinaryAssetService = async (
   req: Request,
   res: Response,
@@ -19,13 +23,16 @@ export const saveCloudinaryAssetService = async (
       data: asset,
     });
   } catch (error) {
+    // P2002 = unique constraint violation (publicId or fileHash already saved)
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === "P2002"
     ) {
+      // Which unique field(s) collided
       const target = error.meta?.target;
       const targets = Array.isArray(target) ? target : [];
 
+      // Return the conflicting record so retries are harmless
       const existing = targets.includes("publicId")
         ? await prisma.cloudinaryAsset.findUnique({ where: { publicId } })
         : (await prisma.cloudinaryAsset.findUnique({ where: { fileHash } })) ??

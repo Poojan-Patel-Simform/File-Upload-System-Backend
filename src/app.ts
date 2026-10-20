@@ -6,10 +6,13 @@ import { MulterError } from "multer";
 import uploadRouter from "./routes/upload.routes.js";
 import cloudinaryRouter from "./routes/cloudinary.routes.js";
 
+/** Express app: security, parsing, rate limiting, routes and error handling. */
 const app = express();
 
+// Set secure HTTP headers
 app.use(helmet());
 
+// Allow cross-origin requests (the frontend runs on a different origin)
 app.use(cors());
 
 // global rate limiter
@@ -21,8 +24,10 @@ const limiter = rateLimit({
 });
 app.use("/api/", limiter);
 
+// Parse JSON request bodies
 app.use(express.json());
 
+// Feature routes
 app.use("/api/uploads/", uploadRouter);
 app.use("/api/cloudinary/", cloudinaryRouter);
 
@@ -35,6 +40,7 @@ app.use(
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _next: express.NextFunction,
   ) => {
+    // Multer errors (e.g. file too large) are client errors
     if (err instanceof MulterError) {
       return res.status(400).json({
         success: false,
@@ -43,6 +49,7 @@ app.use(
       });
     }
 
+    // Unexpected error: log it, but don't leak details to the client
     console.error("Unhandled error:", err);
     return res.status(500).json({
       success: false,

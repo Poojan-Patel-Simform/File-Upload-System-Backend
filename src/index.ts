@@ -1,4 +1,5 @@
 import dotenv from "dotenv";
+// Load env vars before anything else reads them
 dotenv.config();
 import app from "./app.js";
 

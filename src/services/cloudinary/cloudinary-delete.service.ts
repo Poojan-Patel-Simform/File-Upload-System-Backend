@@ -4,6 +4,7 @@ import "dotenv/config";
 import { prisma } from "../../db/prisma.js";
 import { Prisma } from "../../generated/prisma/client.js";
 
+/** Deletes an image on Cloudinary by publicId via a signed request; returns Cloudinary's result (e.g. ok). */
 // Cloudinary's destroy endpoint is resource-type-specific (image/video/raw).
 // CloudinaryAsset has no stored resourceType column, and this integration
 // currently only handles image uploads, so this always targets /image/destroy.
@@ -18,6 +19,7 @@ const destroyOnCloudinary = async (publicId: string): Promise<string> => {
 
   const timestamp = Math.floor(Date.now() / 1000);
 
+  // Cloudinary signature: SHA-1 of the sorted params + API secret
   const signature = createHash("sha1")
     .update(`public_id=${publicId}&timestamp=${timestamp}${apiSecret}`)
     .digest("hex");
@@ -39,6 +41,7 @@ const destroyOnCloudinary = async (publicId: string): Promise<string> => {
   return result.result ?? "unknown";
 };
 
+/** Deletes an asset from Cloudinary, then removes its DB row. */
 export const deleteCloudinaryAssetService = async (
   req: Request,
   res: Response,
@@ -64,6 +67,7 @@ export const deleteCloudinaryAssetService = async (
       });
     }
 
+    // Delete remotely first; if that fails keep the DB row so it can be retried
     let cloudinaryResult: string;
     try {
       cloudinaryResult = await destroyOnCloudinary(asset.publicId);
@@ -80,6 +84,7 @@ export const deleteCloudinaryAssetService = async (
     }
 
     try {
+      // P2025 = row already gone (concurrent delete): ignore it, rethrow anything else
       await prisma.cloudinaryAsset.delete({ where: { id } });
     } catch (dbError) {
       if (

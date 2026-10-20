@@ -8,6 +8,11 @@ import fs from "fs/promises";
 import { type ChunkUploadBody } from "../../schemas/upload.schema.js";
 import * as chunkStore from "../chunk/chunk-store.js";
 
+/**
+ * Receives one chunk of a chunked upload.
+ * Saves it to disk and records it in Redis; when the last chunk arrives, merges
+ * all chunks into the final file and verifies its SHA-256 against the declared hash.
+ */
 export const chunkUploadService = async (req: Request, res: Response) => {
   try {
     const {
@@ -36,6 +41,7 @@ export const chunkUploadService = async (req: Request, res: Response) => {
       });
     }
 
+    // Reject indices outside 0..totalChunks-1
     if (parsedChunkIndex >= upload.totalChunks) {
       return res.status(400).json({
         success: false,
@@ -44,6 +50,7 @@ export const chunkUploadService = async (req: Request, res: Response) => {
       });
     }
 
+    // Already finished: acknowledge without storing again (idempotent retry)
     if (upload.status === "COMPLETED") {
       return res.status(200).json({
         success: true,
@@ -55,6 +62,7 @@ export const chunkUploadService = async (req: Request, res: Response) => {
       });
     }
 
+    // Another request is assembling the file right now
     if (upload.status === "MERGING") {
       return res.status(409).json({
         success: false,
@@ -63,6 +71,7 @@ export const chunkUploadService = async (req: Request, res: Response) => {
       });
     }
 
+    // Client must call /init again, which resumes or restarts the upload
     if (upload.status === "FAILED") {
       return res.status(409).json({
         success: false,
@@ -119,6 +128,7 @@ export const chunkUploadService = async (req: Request, res: Response) => {
     const allChunkIndices = await chunkStore.getAllChunkIndices(uploadId);
 
     const uploadedIndices = new Set(allChunkIndices);
+    // Collect indices that were never received
     const missing: number[] = [];
     for (let i = 0; i < updatedUpload.totalChunks; i++) {
       if (!uploadedIndices.has(i)) missing.push(i);
@@ -139,7 +149,7 @@ export const chunkUploadService = async (req: Request, res: Response) => {
       });
     }
 
-    // All chunks are uploaded, proceed to merge them
+    // All chunks are in: atomically claim the merge (UPLOADING -> MERGING) so only one request does it
     const { count: claimedMerge } = await prisma.upload.updateMany({
       where: { id: uploadId, status: "UPLOADING" },
       data: { status: "MERGING" },
@@ -172,6 +182,7 @@ export const chunkUploadService = async (req: Request, res: Response) => {
       const hash = createHash("sha256");
       const writeStream = createWriteStream(mergedPath);
 
+      // Append chunks in order, hashing as we go
       for (let i = 0; i < updatedUpload.totalChunks; i++) {
         const chunkBuffer = await fs.readFile(path.join(uploadDir, String(i)));
 
@@ -190,12 +201,14 @@ export const chunkUploadService = async (req: Request, res: Response) => {
 
       const computedHash = hash.digest("hex");
 
+      // Integrity check: the merged file must match the hash declared at init
       if (computedHash !== upload.fileHash) {
         throw new Error(
           `Hash mismatch after merge: expected ${upload.fileHash}, got ${computedHash}`,
         );
       }
 
+      // Success: remove the temporary chunks (disk + Redis)
       await fs.rm(uploadDir, { recursive: true, force: true });
       await chunkStore.deleteAllChunks(uploadId);
 
@@ -217,6 +230,7 @@ export const chunkUploadService = async (req: Request, res: Response) => {
         },
       });
     } catch (mergeError) {
+      // Merge failed: mark FAILED and drop the partial file; chunks stay so /init can resume
       console.error("uploadChunk merge error:", mergeError);
 
       await prisma.upload.update({

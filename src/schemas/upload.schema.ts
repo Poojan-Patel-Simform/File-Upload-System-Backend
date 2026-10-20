@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+/** Body of POST /init. fileSize may be a string or number and is converted to BigInt. */
 export const initUploadBodySchema = z.object({
   fileHash: z.string().min(1),
   fileName: z.string().min(1),
@@ -21,6 +22,7 @@ export const initUploadBodySchema = z.object({
 
 export type InitUploadBody = z.infer<typeof initUploadBodySchema>;
 
+/** Form fields of POST /chunk. chunkIndex arrives as a string, so it is coerced; checksum (SHA-256 of the chunk) is optional. */
 export const chunkUploadBodySchema = z.object({
   uploadId: z.string().min(1),
   chunkIndex: z.coerce.number().int().nonnegative(),
@@ -29,6 +31,7 @@ export const chunkUploadBodySchema = z.object({
 
 export type ChunkUploadBody = z.infer<typeof chunkUploadBodySchema>;
 
+/** Query of GET /: optional status filter plus pagination (take max 100). */
 export const listUploadsQuerySchema = z.object({
   status: z
     .enum(["NEW", "UPLOADING", "MERGING", "COMPLETED", "FAILED"])

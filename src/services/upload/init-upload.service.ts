@@ -7,6 +7,10 @@ import fs from "fs/promises";
 import { type InitUploadBody } from "../../schemas/upload.schema.js";
 import * as chunkStore from "../chunk/chunk-store.js";
 
+/**
+ * Starts a chunked upload, or resumes/dedupes an existing one (matched by file hash).
+ * Responds with the upload id and the chunk indices already uploaded.
+ */
 export const initUploadService = async (req: Request, res: Response) => {
   try {
     const {
@@ -205,6 +209,7 @@ export const initUploadService = async (req: Request, res: Response) => {
       });
     }
 
+    // Fallback for any other status: report current progress
     const uploadedIndices = await chunkStore.getAllChunkIndices(
       existingUpload.id,
     );

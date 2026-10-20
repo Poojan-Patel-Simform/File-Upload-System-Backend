@@ -2,6 +2,7 @@ import { type Request, type Response } from "express";
 import { prisma } from "../../db/prisma.js";
 import { type ListCloudinaryAssetsQuery } from "../../schemas/cloudinary.schema.js";
 
+/** Returns a paginated list of Cloudinary assets, newest first. */
 export const listCloudinaryAssetsService = async (
   req: Request,
   res: Response,
@@ -9,6 +10,7 @@ export const listCloudinaryAssetsService = async (
   try {
     const { take, skip } = req.query as unknown as ListCloudinaryAssetsQuery;
 
+    // Fetch the page and the overall count in parallel
     const [items, total] = await Promise.all([
       prisma.cloudinaryAsset.findMany({
         take,

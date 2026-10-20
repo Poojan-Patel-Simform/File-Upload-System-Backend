@@ -32,6 +32,7 @@ import {
   listUploadsQuerySchema,
 } from "../schemas/upload.schema.js";
 
+/** Upload routes, mounted at /api/uploads. */
 const uploadRouter = Router();
 
 // Rate limiters for different upload endpoints
